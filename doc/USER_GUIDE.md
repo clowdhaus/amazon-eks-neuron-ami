@@ -22,7 +22,7 @@ Users have the following options for specifying their own values:
 | Variable | Default value | Description |
 | - | - | - |
 | `additional_yum_repos` | `""` |  |
-| `ami_component_description` | ```(k8s: {{ user `kubernetes_version` }}, docker: {{ user `docker_version` }}, containerd: {{ user `containerd_version` }})``` |  |
+| `ami_component_description` | ```(k8s: {{ user `kubernetes_version` }}, containerd: {{ user `containerd_version` }})``` |  |
 | `ami_description` | ```EKS Kubernetes Worker AMI with AmazonLinux2 image``` |  |
 | `ami_name` | *None* |  |
 | `ami_regions` | `""` |  |
@@ -39,7 +39,6 @@ Users have the following options for specifying their own values:
 | `cni_plugin_version` | ```v1.2.0``` |  |
 | `containerd_version` | ```1.6.*``` |  |
 | `creator` | ```{{env `USER`}}``` |  |
-| `docker_version` | ```20.10.*``` |  |
 | `encrypted` | ```false``` |  |
 | `enable_fips` | ```false``` | Install openssl and enable fips related kernel parameters |
 | `instance_type` | *None* |  |

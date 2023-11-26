@@ -15,7 +15,7 @@ Invoke-WebRequest -OutFile eks-log-collector.ps1 https://raw.githubusercontent.c
 
 #### Example output
 
-The project can be used in normal or Enable/Disable Debug(**Caution: Enable/Disable Debug will restart Docker daemon which would kill running containers**).
+The project can be used in normal or Enable/Disable Debug.
 
 ```
 USAGE: .\eks-log-collector.ps1
@@ -52,15 +52,11 @@ Collecting installed applications list
 OK
 Collecting Services list
 OK
-Collecting Docker daemon information
-OK
 Collecting Kubelet logs
 OK
 Collecting Kube-proxy logs
 OK
 Collecting kubelet information
-OK
-Collecting Docker daemon logs
 OK
 Collecting EKS logs
 OK

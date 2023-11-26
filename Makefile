@@ -17,15 +17,6 @@ packer_variable_file_contains = $(if $(PACKER_VARIABLE_FILE),$(shell grep -Fq $1
 # otherwise expands to 'false'
 vercmp = $(shell $(MAKEFILE_DIR)/files/bin/vercmp "$1" "$2" "$3")
 
-# Docker is not present on 1.25+ AMI's
-# TODO: remove this when 1.24 reaches EOL
-ifeq ($(call vercmp,$(kubernetes_version),gteq,1.25.0), true)
-	# do not tag the AMI with the Docker version
-	docker_version ?= none
-	# do not include the Docker version in the AMI description
-	ami_component_description ?= (k8s: {{ user `kubernetes_version` }}, containerd: {{ user `containerd_version` }})
-endif
-
 AMI_VERSION ?= v$(shell date '+%Y%m%d')
 AMI_VARIANT ?= amazon-eks
 ifneq (,$(findstring al2023, $(PACKER_TEMPLATE_FILE)))

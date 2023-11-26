@@ -24,11 +24,8 @@ function print_help {
   echo "--aws-api-retry-attempts Number of retry attempts for AWS API call (DescribeCluster) (default: 3)"
   echo "--b64-cluster-ca The base64 encoded cluster CA content. Only valid when used with --apiserver-endpoint. Bypasses calling \"aws eks describe-cluster\""
   echo "--cluster-id Specify the id of EKS cluster"
-  echo "--container-runtime Specify a container runtime. For Kubernetes 1.23 and below, possible values are [dockerd, containerd] and the default value is dockerd. For Kubernetes 1.24 and above, containerd is the only valid value. This flag is deprecated and will be removed in a future release."
   echo "--containerd-config-file File containing the containerd configuration to be used in place of AMI defaults."
   echo "--dns-cluster-ip Overrides the IP address to use for DNS queries within the cluster. Defaults to 10.100.0.10 or 172.20.0.10 based on the IP address of the primary interface"
-  echo "--docker-config-json The contents of the /etc/docker/daemon.json file. Useful if you want a custom config differing from the default one in the AMI"
-  echo "--enable-docker-bridge Restores the docker default bridge network. (default: false)"
   echo "--enable-local-outpost Enable support for worker nodes to communicate with the local control plane when running on a disconnected Outpost. (true or false)"
   echo "--ip-family Specify ip family of the cluster"
   echo "--kubelet-extra-args Extra arguments to add to the kubelet. Useful for adding labels or taints."
@@ -79,21 +76,9 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-    --enable-docker-bridge)
-      ENABLE_DOCKER_BRIDGE=$2
-      log "INFO: --enable-docker-bridge='${ENABLE_DOCKER_BRIDGE}'"
-      shift
-      shift
-      ;;
     --aws-api-retry-attempts)
       API_RETRY_ATTEMPTS=$2
       log "INFO: --aws-api-retry-attempts='${API_RETRY_ATTEMPTS}'"
-      shift
-      shift
-      ;;
-    --docker-config-json)
-      DOCKER_CONFIG_JSON=$2
-      log "INFO: --docker-config-json='${DOCKER_CONFIG_JSON}'"
       shift
       shift
       ;;
@@ -118,12 +103,6 @@ while [[ $# -gt 0 ]]; do
     --dns-cluster-ip)
       DNS_CLUSTER_IP=$2
       log "INFO: --dns-cluster-ip='${DNS_CLUSTER_IP}'"
-      shift
-      shift
-      ;;
-    --container-runtime)
-      CONTAINER_RUNTIME=$2
-      log "INFO: --container-runtime='${CONTAINER_RUNTIME}'"
       shift
       shift
       ;;
@@ -188,24 +167,8 @@ if vercmp "$KUBELET_VERSION" lt "1.27.0"; then
   echo "$(jq '.providers[].apiVersion = "credentialprovider.kubelet.k8s.io/v1alpha1"' $IMAGE_CREDENTIAL_PROVIDER_CONFIG)" > $IMAGE_CREDENTIAL_PROVIDER_CONFIG
 fi
 
-# Set container runtime related variables
-DOCKER_CONFIG_JSON="${DOCKER_CONFIG_JSON:-}"
-ENABLE_DOCKER_BRIDGE="${ENABLE_DOCKER_BRIDGE:-false}"
-
-# As of Kubernetes version 1.24, we will start defaulting the container runtime to containerd
-# and no longer support docker as a container runtime.
-DEFAULT_CONTAINER_RUNTIME=dockerd
-if vercmp "$KUBELET_VERSION" gteq "1.24.0"; then
-  DEFAULT_CONTAINER_RUNTIME=containerd
-fi
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$DEFAULT_CONTAINER_RUNTIME}"
-
+CONTAINER_RUNTIME="containerd"
 log "INFO: Using $CONTAINER_RUNTIME as the container runtime"
-
-if vercmp "$KUBELET_VERSION" gteq "1.24.0" && [ $CONTAINER_RUNTIME != "containerd" ]; then
-  log "ERROR: containerd is the only supported container runtime as of Kubernetes version 1.24"
-  exit 1
-fi
 
 USE_MAX_PODS="${USE_MAX_PODS:-true}"
 B64_CLUSTER_CA="${B64_CLUSTER_CA:-}"
@@ -545,74 +508,42 @@ KUBELET_ARGS="$KUBELET_ARGS --cloud-provider=$KUBELET_CLOUD_PROVIDER"
 
 mkdir -p /etc/systemd/system
 
-if [[ "$CONTAINER_RUNTIME" = "containerd" ]]; then
-  if $ENABLE_DOCKER_BRIDGE; then
-    log "WARNING: Flag --enable-docker-bridge was set but will be ignored as it's not relevant to containerd"
-  fi
+sudo mkdir -p /etc/containerd
+sudo mkdir -p /etc/cni/net.d
 
-  if [ ! -z "$DOCKER_CONFIG_JSON" ]; then
-    log "WARNING: Flag --docker-config-json was set but will be ignored as it's not relevant to containerd"
-  fi
+if [[ -n "${CONTAINERD_CONFIG_FILE}" ]]; then
+  sudo cp -v "${CONTAINERD_CONFIG_FILE}" /etc/eks/containerd/containerd-config.toml
+fi
 
-  sudo mkdir -p /etc/containerd
-  sudo mkdir -p /etc/cni/net.d
+sudo sed -i s,SANDBOX_IMAGE,$PAUSE_CONTAINER,g /etc/eks/containerd/containerd-config.toml
 
-  if [[ -n "${CONTAINERD_CONFIG_FILE}" ]]; then
-    sudo cp -v "${CONTAINERD_CONFIG_FILE}" /etc/eks/containerd/containerd-config.toml
-  fi
+echo "$(jq '.cgroupDriver="systemd"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
+##allow --reserved-cpus options via kubelet arg directly. Disable default reserved cgroup option in such cases
+if [[ "${USE_RESERVED_CGROUPS}" = true ]]; then
+  echo "$(jq '.systemReservedCgroup="/system"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
+  echo "$(jq '.kubeReservedCgroup="/runtime"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
+fi
 
-  sudo sed -i s,SANDBOX_IMAGE,$PAUSE_CONTAINER,g /etc/eks/containerd/containerd-config.toml
-
-  echo "$(jq '.cgroupDriver="systemd"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
-  ##allow --reserved-cpus options via kubelet arg directly. Disable default reserved cgroup option in such cases
-  if [[ "${USE_RESERVED_CGROUPS}" = true ]]; then
-    echo "$(jq '.systemReservedCgroup="/system"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
-    echo "$(jq '.kubeReservedCgroup="/runtime"' "${KUBELET_CONFIG}")" > "${KUBELET_CONFIG}"
-  fi
-
-  # Check if the containerd config file is the same as the one used in the image build.
-  # If different, then restart containerd w/ proper config
-  if ! cmp -s /etc/eks/containerd/containerd-config.toml /etc/containerd/config.toml; then
-    sudo cp -v /etc/eks/containerd/containerd-config.toml /etc/containerd/config.toml
-    sudo cp -v /etc/eks/containerd/sandbox-image.service /etc/systemd/system/sandbox-image.service
-    sudo chown root:root /etc/systemd/system/sandbox-image.service
-    systemctl daemon-reload
-    systemctl enable containerd sandbox-image
-    systemctl restart sandbox-image containerd
-  fi
-  sudo cp -v /etc/eks/containerd/kubelet-containerd.service /etc/systemd/system/kubelet.service
-  sudo chown root:root /etc/systemd/system/kubelet.service
-  # Validate containerd config
-  sudo containerd config dump > /dev/null
+# Check if the containerd config file is the same as the one used in the image build.
+# If different, then restart containerd w/ proper config
+if ! cmp -s /etc/eks/containerd/containerd-config.toml /etc/containerd/config.toml; then
+  sudo cp -v /etc/eks/containerd/containerd-config.toml /etc/containerd/config.toml
+  sudo cp -v /etc/eks/containerd/sandbox-image.service /etc/systemd/system/sandbox-image.service
+  sudo chown root:root /etc/systemd/system/sandbox-image.service
+  systemctl daemon-reload
+  systemctl enable containerd sandbox-image
+  systemctl restart sandbox-image containerd
+fi
+sudo cp -v /etc/eks/containerd/kubelet.service /etc/systemd/system/kubelet.service
+sudo chown root:root /etc/systemd/system/kubelet.service
+# Validate containerd config
+sudo containerd config dump > /dev/null
 
   # --container-runtime flag is gone in 1.27+
   # TODO: remove this when 1.26 is EOL
   if vercmp "$KUBELET_VERSION" lt "1.27.0"; then
     KUBELET_ARGS="$KUBELET_ARGS --container-runtime=remote"
   fi
-elif [[ "$CONTAINER_RUNTIME" = "dockerd" ]]; then
-  mkdir -p /etc/docker
-  bash -c "/sbin/iptables-save > /etc/sysconfig/iptables"
-  cp -v /etc/eks/iptables-restore.service /etc/systemd/system/iptables-restore.service
-  sudo chown root:root /etc/systemd/system/iptables-restore.service
-  systemctl daemon-reload
-  systemctl enable iptables-restore
-
-  if [[ -n "$DOCKER_CONFIG_JSON" ]]; then
-    echo "$DOCKER_CONFIG_JSON" > /etc/docker/daemon.json
-  fi
-  if [[ "$ENABLE_DOCKER_BRIDGE" = "true" ]]; then
-    # Enabling the docker bridge network. We have to disable live-restore as it
-    # prevents docker from recreating the default bridge network on restart
-    echo "$(jq '.bridge="docker0" | ."live-restore"=false' /etc/docker/daemon.json)" > /etc/docker/daemon.json
-  fi
-  systemctl daemon-reload
-  systemctl enable docker
-  systemctl restart docker
-else
-  log "ERROR: unsupported container runtime: '${CONTAINER_RUNTIME}'"
-  exit 1
-fi
 
 mkdir -p /etc/systemd/system/kubelet.service.d
 

@@ -23,12 +23,12 @@ cat "${PACKER_TEMPLATE_FILE}" \
   | jq 'del(.provisioners[5])' \
     > "${PACKER_TEMPLATE_FILE/al2/al2023}"
 
-# use newer versions of containerd and runc, do not install docker
+# use newer versions of containerd and runc
 # use al2023 6.1 minimal image
 cat "${PACKER_DEFAULT_VARIABLE_FILE}" \
   | jq '.ami_component_description = "(k8s: {{ user `kubernetes_version` }}, containerd: {{ user `containerd_version` }})"' \
   | jq '.ami_description = "EKS-optimized Kubernetes node based on Amazon Linux 2023"' \
-  | jq '.containerd_version = "*" | .runc_version = "*" | .docker_version = "" ' \
+  | jq '.containerd_version = "*" | .runc_version = "*" ' \
   | jq '.source_ami_filter_name = "al2023-ami-minimal-2023.*-kernel-6.1-x86_64"' \
   | jq '.volume_type = "gp3"' \
     > "${PACKER_DEFAULT_VARIABLE_FILE/al2/al2023}"

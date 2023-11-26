@@ -10,13 +10,13 @@
 .SYNOPSIS
     Collects EKS Logs
 .DESCRIPTION
-    Run the script to gather basic operating system, Docker daemon, and kubelet logs.
+    Run the script to gather basic operating system, containerd, and kubelet logs.
 
 .NOTES
     You need to run this script with Elevated permissions to allow for the collection of the installed applications list
 .EXAMPLE
     eks-log-collector.ps1
-    Gather basic operating system, Docker daemon, and kubelet logs.
+    Gather basic operating system, containerd, and kubelet logs.
 
 #>
 
@@ -52,13 +52,11 @@ Function create_working_dir{
         Write-Host "Creating temporary directory"
         New-Item -type directory -path $info_system -Force >$null
         New-Item -type directory -path $info_system\eks -Force >$null
-        New-Item -type directory -path $info_system\docker -Force >$null
         New-Item -type directory -path $info_system\containerd -Force >$null
         New-Item -type directory -path $info_system\firewall -Force >$null
         New-Item -type directory -path $info_system\kubelet -Force >$null
         New-Item -type directory -path $info_system\kube-proxy -Force >$null
         New-Item -type directory -path $info_system\cni -Force >$null
-        New-Item -type directory -path $info_system\docker_log -Force >$null
         New-Item -type directory -path $info_system\containerd_log -Force >$null
         New-Item -type directory -path $info_system\network -Force >$null
         New-Item -type directory -path $info_system\network\hns -Force >$null
@@ -235,23 +233,6 @@ Function get_containerd_info{
     }
 }
 
-Function get_docker_info{
-    Write-Host "Collecting Docker daemon information"
-    if (check_service_installed_and_running "docker") {
-        try {
-            docker info > $info_system\docker\docker-info.txt 2>&1
-            docker ps --all --no-trunc > $info_system\docker\docker-ps.txt 2>&1
-            docker images > $info_system\docker\docker-images.txt 2>&1
-            docker version > $info_system\docker\docker-version.txt 2>&1
-            Write-Host "OK" -foregroundcolor "green"
-        }
-        catch {
-            Write-Error "Unable to collect Docker daemon information"
-            Break
-        }
-    }
-}
-
 Function get_eks_logs{
     try {
         Write-Host "Collecting EKS logs"
@@ -295,20 +276,6 @@ Function get_k8s_info{
     catch {
         Write-Error "Unable to collect kubelet information"
         Break
-    }
-}
-
-Function get_docker_logs{
-    Write-Host "Collecting Docker daemon logs"
-    if (check_service_installed_and_running "docker") {
-        try {
-            Get-EventLog -LogName Application -Source Docker | Sort-Object Time | Export-CSV $info_system/docker_log/docker-daemon.csv
-            Write-Host "OK" -foregroundcolor "green"
-        }
-        catch {
-            Write-Error "Unable to collect Docker daemon logs"
-            Break
-        }
     }
 }
 
@@ -383,10 +350,8 @@ Function collect{
     get_firewall_info
     get_softwarelist
     get_system_services
-    get_docker_info
     get_containerd_info
     get_k8s_info
-    get_docker_logs
     get_containerd_logs
     get_eks_logs
     get_network_info

@@ -52,7 +52,6 @@ COMMON_DIRECTORIES=(
   kernel
   modinfo
   system
-  docker
   containerd
   storage
   var_log
@@ -271,7 +270,6 @@ collect() {
   get_pkglist
   get_system_services
   get_containerd_info
-  get_docker_info
   get_k8s_info
   get_ipamd_info
   get_multus_info
@@ -279,7 +277,6 @@ collect() {
   get_networking_info
   get_cni_config
   get_cni_configuration_variables
-  get_docker_logs
   get_sandboxImage_info
   get_cpu_throttled_processes
   get_io_throttled_processes
@@ -397,28 +394,6 @@ get_kernel_info() {
 get_modinfo() {
   try "collect modinfo"
   modinfo lustre > "${COLLECT_DIR}/modinfo/lustre"
-}
-
-get_docker_logs() {
-  try "collect Docker daemon logs"
-
-  case "${INIT_TYPE}" in
-    systemd | snap)
-      journalctl --unit=docker --since "${DAYS_10}" > "${COLLECT_DIR}"/docker/docker.log
-      ;;
-    other)
-      for entry in docker upstart/docker; do
-        if [[ -e "/var/log/${entry}" ]]; then
-          cp --force --recursive --dereference /var/log/"${entry}" "${COLLECT_DIR}"/docker/
-        fi
-      done
-      ;;
-    *)
-      warning "The current operating system is not supported."
-      ;;
-  esac
-
-  ok
 }
 
 get_k8s_info() {
@@ -564,16 +539,6 @@ get_cni_config() {
 get_cni_configuration_variables() {
   # To get cni configuration variables, gather from the main container "amazon-k8s-cni"
   # - https://github.com/aws/amazon-vpc-cni-k8s#cni-configuration-variables
-  try "collect CNI Configuration Variables from Docker"
-
-  # "docker container list" will only show "RUNNING" containers.
-  # "docker container inspect" will generate plain text output.
-  if [[ "$(pgrep -o dockerd)" -ne 0 ]]; then
-    timeout 75 docker container list | awk '/amazon-k8s-cni/{print$NF}' | xargs -n 1 docker container inspect > "${COLLECT_DIR}"/cni/cni-configuration-variables-dockerd.txt 2>&1 || echo -e "\tTimed out, ignoring \"cni configuration variables output \" "
-  else
-    warning "The Docker daemon is not running."
-  fi
-
   try "collect CNI Configuration Variables from Containerd"
 
   # "ctr container list" will list down all containers, including stopped ones.
@@ -678,22 +643,6 @@ get_containerd_info() {
 get_sandboxImage_info() {
   try "Collect sandbox-image daemon information"
   timeout 75 journalctl -u sandbox-image > "${COLLECT_DIR}"/sandbox-image/sandbox-image-log.txt 2>&1 || echo -e "\tTimed out, ignoring \"sandbox-image info output \" "
-  ok
-}
-
-get_docker_info() {
-  try "Collect Docker daemon information"
-
-  if [[ "$(pgrep -o dockerd)" -ne 0 ]]; then
-    timeout 75 docker info > "${COLLECT_DIR}"/docker/docker-info.txt 2>&1 || echo -e "\tTimed out, ignoring \"docker info output \" "
-    timeout 75 docker ps --all --no-trunc > "${COLLECT_DIR}"/docker/docker-ps.txt 2>&1 || echo -e "\tTimed out, ignoring \"docker ps --all --no-truc output \" "
-    timeout 75 docker images > "${COLLECT_DIR}"/docker/docker-images.txt 2>&1 || echo -e "\tTimed out, ignoring \"docker images output \" "
-    timeout 75 docker version > "${COLLECT_DIR}"/docker/docker-version.txt 2>&1 || echo -e "\tTimed out, ignoring \"docker version output \" "
-    timeout 75 curl --unix-socket /var/run/docker.sock http://./debug/pprof/goroutine\?debug\=2 > "${COLLECT_DIR}"/docker/docker-trace.txt 2>&1 || echo -e "\tTimed out, ignoring \"docker version output \" "
-  else
-    warning "The Docker daemon is not running."
-  fi
-
   ok
 }
 

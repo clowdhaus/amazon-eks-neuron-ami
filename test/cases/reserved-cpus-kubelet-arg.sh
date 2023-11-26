@@ -49,19 +49,6 @@ if ! $(grep -q kubeReservedCgroup ${KUBELET_CONFIG}); then
   exit 1
 fi
 
-echo "-> Should set systemReservedCgroup and kubeReservedCgroup when --reserved-cpus is set with dockerd"
-exit_code=0
-export KUBELET_VERSION=v1.23.15-eks-ba74326
-/etc/eks/bootstrap.sh \
-  --b64-cluster-ca dGVzdA== \
-  --apiserver-endpoint http://my-api-endpoint \
-  test || exit_code=$?
-
-if [[ ${exit_code} -ne 0 ]]; then
-  echo "❌ Test Failed: expected a non-zero exit code but got '${exit_code}'"
-  exit 1
-fi
-
 if ! $(grep -q systemReservedCgroup ${KUBELET_CONFIG}); then
   echo "❌ Test Failed: expected systemReservedCgroup to be present in ${KUBELET_CONFIG}.Found: $(grep systemReservedCgroup ${KUBELET_CONFIG})"
   exit 1

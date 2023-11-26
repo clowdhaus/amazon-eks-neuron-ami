@@ -22,7 +22,6 @@ validate_env_set() {
 
 validate_env_set BINARY_BUCKET_NAME
 validate_env_set BINARY_BUCKET_REGION
-validate_env_set DOCKER_VERSION
 validate_env_set CONTAINERD_VERSION
 validate_env_set RUNC_VERSION
 validate_env_set CNI_PLUGIN_VERSION
@@ -174,7 +173,7 @@ else
   sudo mv $WORKING_DIR/containerd-config.toml /etc/eks/containerd/containerd-config.toml
 fi
 
-sudo mv $WORKING_DIR/kubelet-containerd.service /etc/eks/containerd/kubelet-containerd.service
+sudo mv $WORKING_DIR/kubelet.service /etc/eks/containerd/kubelet.service
 sudo mv $WORKING_DIR/sandbox-image.service /etc/eks/containerd/sandbox-image.service
 sudo mv $WORKING_DIR/pull-sandbox-image.sh /etc/eks/containerd/pull-sandbox-image.sh
 sudo mv $WORKING_DIR/pull-image.sh /etc/eks/containerd/pull-image.sh
@@ -191,7 +190,7 @@ fi
 
 cat << EOF | sudo tee /etc/systemd/system/containerd.service.d/10-compat-symlink.conf
 [Service]
-ExecStartPre=/bin/ln -sf /run/containerd/containerd.sock /run/dockershim.sock
+ExecStartPre=/bin/ln -sf /run/containerd/containerd.sock
 EOF
 
 cat << EOF | sudo tee -a /etc/modules-load.d/containerd.conf
@@ -214,39 +213,6 @@ sudo mkdir /etc/nerdctl
 cat << EOF | sudo tee -a /etc/nerdctl/nerdctl.toml
 namespace = "k8s.io"
 EOF
-
-################################################################################
-### Docker #####################################################################
-################################################################################
-
-sudo yum install -y device-mapper-persistent-data lvm2
-
-if [[ ! -v "INSTALL_DOCKER" ]]; then
-  INSTALL_DOCKER=$(vercmp "$KUBERNETES_VERSION" lt "1.25.0" || true)
-else
-  echo "WARNING: using override INSTALL_DOCKER=${INSTALL_DOCKER}. This option is deprecated and will be removed in a future release."
-fi
-
-if [[ "$INSTALL_DOCKER" == "true" ]]; then
-  sudo amazon-linux-extras enable docker
-  sudo groupadd -og 1950 docker
-  sudo useradd --gid $(getent group docker | cut -d: -f3) docker
-
-  # install docker and lock version
-  sudo yum install -y docker-${DOCKER_VERSION}*
-  sudo yum versionlock docker-*
-  sudo usermod -aG docker $USER
-
-  # Remove all options from sysconfig docker.
-  sudo sed -i '/OPTIONS/d' /etc/sysconfig/docker
-
-  sudo mkdir -p /etc/docker
-  sudo mv $WORKING_DIR/docker-daemon.json /etc/docker/daemon.json
-  sudo chown root:root /etc/docker/daemon.json
-
-  # Enable docker daemon to start on boot.
-  sudo systemctl daemon-reload
-fi
 
 ################################################################################
 ### Logrotate ##################################################################
