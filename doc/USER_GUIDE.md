@@ -41,12 +41,12 @@ Users have the following options for specifying their own values:
 | `creator` | ```{{env `USER`}}``` |  |
 | `encrypted` | ```false``` |  |
 | `enable_fips` | ```false``` | Install openssl and enable fips related kernel parameters |
-| `instance_type` | *None* |  |
+| `instance_type` | ```trn1.2xlarge``` |  |
 | `kernel_version` | `""` |  |
 | `kms_key_id` | `""` |  |
 | `kubernetes_build_date` | *None* |  |
 | `kubernetes_version` | *None* |  |
-| `launch_block_device_mappings_volume_size` | ```4``` |  |
+| `launch_block_device_mappings_volume_size` | ```8``` |  |
 | `pause_container_version` | ```3.5``` |  |
 | `pull_cni_from_github` | ```true``` |  |
 | `remote_folder` | ```/tmp``` | Directory path for shell provisioner scripts on the builder instance |
@@ -60,7 +60,7 @@ Users have the following options for specifying their own values:
 | `ssm_agent_version` | ```latest``` |  |
 | `subnet_id` | `""` |  |
 | `temporary_security_group_source_cidrs` | `""` |  |
-| `volume_type` | ```gp2``` |  |
+| `volume_type` | ```gp3``` |  |
 | `working_dir` | ```{{user `remote_folder`}}/worker``` | Directory path for ephemeral resources on the builder instance |
 <!-- template-variable-table-boundary -->
 

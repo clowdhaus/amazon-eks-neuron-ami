@@ -23,16 +23,10 @@ ifneq (,$(findstring al2023, $(PACKER_TEMPLATE_FILE)))
 	AMI_VARIANT := $(AMI_VARIANT)-al2023
 endif
 arch ?= x86_64
-ifeq ($(arch), arm64)
-	instance_type ?= m6g.large
-	AMI_VARIANT := $(AMI_VARIANT)-arm64
-else
-	instance_type ?= m5.large
-endif
 ifeq ($(enable_fips), true)
 	AMI_VARIANT := $(AMI_VARIANT)-fips
 endif
-ami_name ?= $(AMI_VARIANT)-node-$(K8S_VERSION_MINOR)-$(AMI_VERSION)
+ami_name ?= $(AMI_VARIANT)-neuron-node-$(K8S_VERSION_MINOR)-$(AMI_VERSION)
 
 ifeq ($(aws_region), cn-northwest-1)
 	source_ami_owners ?= 141808717104

@@ -199,6 +199,19 @@
     {
       "type": "shell",
       "remote_folder": "{{ user `remote_folder`}}",
+      "scripts": [
+        "{{template_dir}}/scripts/install-neuron.sh",
+        "{{template_dir}}/scripts/install-efa.sh"
+      ],
+      "environment_vars": [
+        "WORKING_DIR={{user `working_dir`}}"
+      ],
+      "execute_command": "echo 'packer' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'",
+      "expect_disconnect": true
+    },
+    {
+      "type": "shell",
+      "remote_folder": "{{ user `remote_folder`}}",
       "script": "{{template_dir}}/scripts/cleanup.sh"
     },
     {

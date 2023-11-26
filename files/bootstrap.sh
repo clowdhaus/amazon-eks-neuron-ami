@@ -534,8 +534,6 @@ if ! cmp -s /etc/eks/containerd/containerd-config.toml /etc/containerd/config.to
   systemctl enable containerd sandbox-image
   systemctl restart sandbox-image containerd
 fi
-sudo cp -v /etc/eks/containerd/kubelet.service /etc/systemd/system/kubelet.service
-sudo chown root:root /etc/systemd/system/kubelet.service
 # Validate containerd config
 sudo containerd config dump > /dev/null
 

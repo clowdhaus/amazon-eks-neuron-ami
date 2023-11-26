@@ -118,12 +118,6 @@ echo -e "\nCiphers aes128-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@opens
 sudo systemctl restart sshd.service
 
 ################################################################################
-### iptables ###################################################################
-################################################################################
-
-sudo mv $WORKING_DIR/iptables-restore.service /etc/eks/iptables-restore.service
-
-################################################################################
 ### awscli #####################################################
 ################################################################################
 
@@ -173,7 +167,6 @@ else
   sudo mv $WORKING_DIR/containerd-config.toml /etc/eks/containerd/containerd-config.toml
 fi
 
-sudo mv $WORKING_DIR/kubelet.service /etc/eks/containerd/kubelet.service
 sudo mv $WORKING_DIR/sandbox-image.service /etc/eks/containerd/sandbox-image.service
 sudo mv $WORKING_DIR/pull-sandbox-image.sh /etc/eks/containerd/pull-sandbox-image.sh
 sudo mv $WORKING_DIR/pull-image.sh /etc/eks/containerd/pull-image.sh
@@ -346,6 +339,7 @@ sudo chmod +x /etc/eks/max-pods-calculator.sh
 ################################################################################
 ### ECR CREDENTIAL PROVIDER ####################################################
 ################################################################################
+
 ECR_CREDENTIAL_PROVIDER_BINARY="ecr-credential-provider"
 if [[ -n "$AWS_ACCESS_KEY_ID" ]]; then
   echo "AWS cli present - using it to copy ${ECR_CREDENTIAL_PROVIDER_BINARY} from s3."
@@ -522,12 +516,14 @@ echo 'kernel.pid_max=4194304' | sudo tee -a /etc/sysctl.conf
 ################################################################################
 ### adding log-collector-script ################################################
 ################################################################################
+
 sudo mkdir -p /etc/eks/log-collector-script/
 sudo cp $WORKING_DIR/log-collector-script/eks-log-collector.sh /etc/eks/log-collector-script/
 
 ################################################################################
 ### Remove Yum Update from cloud-init config ###################################
 ################################################################################
+
 sudo sed -i \
   's/ - package-update-upgrade-install/# Removed so that nodes do not have version skew based on when the node was started.\n# - package-update-upgrade-install/' \
   /etc/cloud/cloud.cfg
