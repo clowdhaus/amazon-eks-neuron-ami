@@ -1,5 +1,10 @@
 # Amazon EKS AMI Build Specification
 
+> [!IMPORTANT]  
+> The official Amazon EKS AMI repository now provides the necessary build scripts and configuration for creating EKS AMIs using AL2023 suitable for Neuron devices
+> Refer to this [pull request](https://github.com/awslabs/amazon-eks-ami/pull/1924) for further details
+> This fork is now deprecated and users should switch to using the [configurations provided by the Amazon EKS team](https://github.com/awslabs/amazon-eks-ami)
+
 This repository contains resources and configuration scripts for building a
 custom Amazon EKS AMI with [HashiCorp Packer](https://www.packer.io/). This is
 the same configuration that Amazon EKS uses to create the official Amazon
